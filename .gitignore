@@ -1,0 +1,44 @@
+# Dipendenze
+node_modules/
+
+# Output di build TypeScript
+dist/
+build/
+
+# Variabili d'ambiente (MAI pushare i secreti!)
+.env
+.env.local
+.env.test
+.env.production
+
+# Log
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database locali (SQLite usato per i test)
+*.sqlite
+*.sqlite3
+
+# File di Sistema Operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE e Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Volumi Docker locali
+.docker/
+
+# Coverage Test (Jest)
+coverage/
+.nyc_output/
+
+# Cache TypeScript
+*.tsbuildinfo

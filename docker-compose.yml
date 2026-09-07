@@ -1,0 +1,91 @@
+
+services:
+  # ─────────────────────────────────────────────
+  # App Node.js / Express
+  # ─────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: progetto_app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-gridpath_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres123}
+      # JWT RS256 – in dev usiamo una coppia di chiavi di test
+      # In produzione sostituire con chiavi RSA reali
+      JWT_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCQFXqKs8X6rdD9\nQQMtPGqwn7LMOviZbGzKq++CxHdh498Gj3mZxXY7NPqoWK4g0rpdeQIVik2gNTHy\n3kuQynGBzfSOC7ZtSlLeKuVJneaAkK5YiAd7qLK6zogbCbVnsoYPE3is1MibWtXB\nMKJrpCXqP7PUeOdAvALfTf2kT5vY1kh8f0R/6mpf++awpnO7VKNB0qQDqvL3zgAU\nZ/hau+uDkcPLu/kvRahuE/Bn1hA4vsAeXvULnXi+X2cCY/2XtqNoMJCemgwqPB1B\nmLULcU3zwO/NfRcIafIH1tUTfJ1lhSgK80/bracPUc8ZDGRuxeQ02KzXWr9gycTX\nC5teRgAPAgMBAAECggEACfnKuba3suL88MPjDes8cc0kynocwzacE64yz4l9wIPP\n6breTvS6el/xKN229KPSbm1V5Rrlw/1a33dfoP87O6MAVyNddpSqRyKOLHonvugF\ngjCs3/VupnttNf4Gls7n9DxDYyf6WbNA0HbnD+/WBjFx6HiUfklmI4LZWFqArlMR\nIQAHBb4vEb9rrhaX3P1u5PIiQkpskxUFiXDuOBJU4NQvVAvA++tP/wBig1nZxXUG\nSZ1wqE3Gk+HyvABkKtAqky8e8HqSqP95U9tasKMOWQWmp5/prbpo2ZCKHyUugI7r\nmd+IMuuoabdZsuGM7CHpw29GoLlcTLwSPUJRfqcklQKBgQDKeAWFaX+NtY14I+mS\nM6lKa4a8w6+QfdTYo8RhDIzinbT117e6qN9wrGbZ4AgvV8UkWZ01BD5ntGdcnm8E\nicJ6658cSw985oCjMjnvXLU+3YO8Qr0lDv3ayGJ3XK9qwlpF8g1aeOJh+AVtdBUh\nbd73c2nDjdb5UMkhHNT1QGF8rQKBgQC2LbV24nGzAR6MBy3j84Z0qIoQsZlWJguC\n+0L+PcNVj9k9wxjOowsT/2BxPQ6cre128o5WV75dTuIH2r1OZ45bW0UkHxluporM\nGjh2E4NGO1We5CtvGmTdZFSXgS/H/g/9nPBV5JCwPL7cHcz8qtD72y+pj+0MuLrh\nF6O/l2krKwKBgC0CW2/aERIGnylrClyHAYZauvwxoFDFuFBkr55HdPZXysewKdbj\n/bAFk2Ox6v/jSh8XkNwdUmYpc6TiT5m5qjM7OAbJJOtGLqiY3Mo6WMxd4BA04elg\nGMzPKRyRzSk1hW3xLkjDgMf4o/Q+Dwh8bUmjLYrceEK6U8v5pdnTcxiNAoGASSte\noNseM3kVncQcaFuc+yneGgpavcEWCouEQrznwWu/IxFC22ucvXFqeNC/F6q7n3SY\nOpGPQca2/dSbB+yLvqGPyYw8GLcHNCar2rDHnuOh5elakIsXS9xKJXebi0W9gm0Q\nEk901XPwbFQDys+IlD9ai03lNaDUXieyevcDJHUCgYB7ujES7ynM73qK6P2j1Tzk\nSSxAs+P3usxGcJ0VpVTK5a6xKcj78u/55hJehXjoT/2nbTmrcZorOIwcp1W+lo7x\nliBwzpwdZNOnteMxQ8a9CR2VxAjXwVk8mEGcPn2okGpt3UxcRiEkAzpFC0Q12x/R\nmGMvPJ3p9BrYqSvpSed4bw==\n-----END PRIVATE KEY-----"
+      JWT_PUBLIC_KEY: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkBV6irPF+q3Q/UEDLTxq\nsJ+yzDr4mWxsyqvvgsR3YePfBo95mcV2OzT6qFiuINK6XXkCFYpNoDUx8t5LkMpx\ngc30jgu2bUpS3irlSZ3mgJCuWIgHe6iyus6IGwm1Z7KGDxN4rNTIm1rVwTCia6Ql\n6j+z1HjnQLwC3039pE+b2NZIfH9Ef+pqX/vmsKZzu1SjQdKkA6ry984AFGf4Wrvr\ng5HDy7v5L0WobhPwZ9YQOL7AHl71C514vl9nAmP9l7ajaDCQnpoMKjwdQZi1C3FN\n88DvzX0XCGnyB9bVE3ydZYUoCvNP262nD1HPGQxkbsXkNNis11q/YMnE1wubXkYA\nDwIDAQAB\n-----END PUBLIC KEY-----"
+      JWT_EXPIRES_IN: 7d
+      INITIAL_USER_TOKENS: 100
+      LOG_LEVEL: debug
+      API_PREFIX: /api/v1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # ─────────────────────────────────────────────
+  # Database PostgreSQL
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: progetto_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-gridpath_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-gridpath_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - app_network
+
+  # ─────────────────────────────────────────────
+  # pgAdmin (GUI per il DB – solo sviluppo)
+  # Avvia con: docker-compose --profile tools up
+  # Poi vai su http://localhost:5050
+  # Login: admin@admin.com / admin
+  # ─────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: progetto_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - app_network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge

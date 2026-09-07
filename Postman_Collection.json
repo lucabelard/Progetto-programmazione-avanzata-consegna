@@ -1,0 +1,1338 @@
+{
+  "info": {
+    "name": "Progetto Programmazione Avanzata - GridPath",
+    "description": "Flusso consigliato:\n1. Autenticazione: Registra e fai login con Alice e Bob (salva token automaticamente)\n2. Modelli: Alice crea modelli 2D e 3D\n3. Pathfinding: Alice esegue algoritmi BFS e A*\n4. Update Request: Bob propone modifiche 2D (A e B) e 3D -> PENDING. Esporta PDF con 2 richieste!\n5. Decide: Alice approva proposta A (2D) e 3D, rifiuta proposta B (2D)\n6. Bulk Decide: Bob propone modifiche e Alice le decide in blocco con rollback transazionale\n7. Utenti: Lista utenti, dettaglio e ricarica token\n8. Health Check",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Autenticazione",
+      "item": [
+        {
+          "name": "Registra Alice (creatore modelli)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Creatore\",\n  \"email\": \"alice@gridpath.it\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Alice -> salva tokenAlice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('tokenAlice', res.data.token);",
+                  "    pm.collectionVariables.set('token', res.data.token);",
+                  "}",
+                  "if (res.success && res.data && res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userIdAlice', String(res.data.user.id));",
+                  "    pm.collectionVariables.set('userId', String(res.data.user.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@gridpath.it\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Registra Bob (altro utente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Propositore\",\n  \"email\": \"bob@gridpath.it\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Bob -> salva tokenBob",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('tokenBob', res.data.token);",
+                  "}",
+                  "if (res.success && res.data && res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userIdBob', String(res.data.user.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bob@gridpath.it\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Modelli di Griglia (Alice crea)",
+      "item": [
+        {
+          "name": "Crea Modello 2D - 5x5 con labirinto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.model) {",
+                  "    pm.collectionVariables.set('modelId2D', String(res.data.model.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Griglia 2D 5x5 con Labirinto\",\n  \"modelType\": \"GRID_2D\",\n  \"width\": 5,\n  \"height\": 5,\n  \"gridData\": [\n    [\n      0,\n      0,\n      0,\n      0,\n      0\n    ],\n    [\n      0,\n      1,\n      1,\n      1,\n      0\n    ],\n    [\n      0,\n      1,\n      0,\n      1,\n      0\n    ],\n    [\n      0,\n      1,\n      0,\n      1,\n      0\n    ],\n    [\n      0,\n      0,\n      0,\n      0,\n      0\n    ]\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crea Modello 3D - 3x3x3 con voxel muro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.model) {",
+                  "    pm.collectionVariables.set('modelId3D', String(res.data.model.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Voxel 3D 3x3x3\",\n  \"modelType\": \"GRID_3D\",\n  \"width\": 3,\n  \"height\": 3,\n  \"depth\": 3,\n  \"gridData\": [\n    [\n      [\n        0,\n        0,\n        0\n      ],\n      [\n        0,\n        1,\n        0\n      ],\n      [\n        0,\n        0,\n        0\n      ]\n    ],\n    [\n      [\n        0,\n        0,\n        0\n      ],\n      [\n        0,\n        0,\n        0\n      ],\n      [\n        0,\n        0,\n        0\n      ]\n    ],\n    [\n      [\n        0,\n        0,\n        0\n      ],\n      [\n        0,\n        0,\n        0\n      ],\n      [\n        0,\n        0,\n        0\n      ]\n    ]\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Modelli",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dettaglio Modello 3D",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Pathfinding (Alice esegue)",
+      "item": [
+        {
+          "name": "Pathfinding 2D - BFS da (0,0) a (4,4)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": {\n    \"x\": 0,\n    \"y\": 0\n  },\n  \"goal\": {\n    \"x\": 4,\n    \"y\": 4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/execute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "execute"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pathfinding 2D - ASTAR da (0,0) a (4,4)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": {\n    \"x\": 0,\n    \"y\": 0\n  },\n  \"goal\": {\n    \"x\": 4,\n    \"y\": 4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/execute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "execute"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pathfinding 3D - ASTAR da (0,0,0) a (2,2,2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": {\n    \"x\": 0,\n    \"y\": 0,\n    \"z\": 0\n  },\n  \"goal\": {\n    \"x\": 2,\n    \"y\": 2,\n    \"z\": 2\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}/execute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}",
+                "execute"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pathfinding 2D - Percorso Impossibile (start = muro -> 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": {\n    \"x\": 1,\n    \"y\": 1\n  },\n  \"goal\": {\n    \"x\": 4,\n    \"y\": 4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/execute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "execute"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Update Request - Bob propone",
+      "item": [
+        {
+          "name": "Bob propone modifica 2D - Proposta A (-> PENDING, approvazione)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('reqId', String(res.data.id));",
+                  "    pm.collectionVariables.set('reqId1', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 1,\n      \"y\": 1,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bob propone modifica 2D - Proposta B (-> PENDING, da rifiutare)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('reqId2', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 2,\n      \"y\": 1,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bob propone modifica 3D - abbatte muro voxel (-> PENDING)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('reqId3D', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 1,\n      \"y\": 1,\n      \"z\": 0,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti 2D (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti 2D (PDF con entrambe le richieste)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates?format=pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "pdf"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti 3D (PDF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}/updates?format=pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "pdf"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti - Filtro PENDING + GRID_2D",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates?status=PENDING&modelType=GRID_2D",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "modelType",
+                  "value": "GRID_2D"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Decide - Alice approva o rifiuta",
+      "item": [
+        {
+          "name": "Bob tenta di approvare (deve dare 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/{{reqId1}}/decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "{{reqId1}}",
+                "decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alice approva richiesta 2D Proposta A (PENDING -> ACCEPTED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/{{reqId1}}/decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "{{reqId1}}",
+                "decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alice riapprova stessa richiesta A (deve dare 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/{{reqId1}}/decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "{{reqId1}}",
+                "decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alice approva modifica 3D (abbatte muro voxel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}/updates/{{reqId3D}}/decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}",
+                "updates",
+                "{{reqId3D}}",
+                "decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alice rifiuta richiesta 2D Proposta B con motivazione",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\",\n  \"reason\": \"Modifica non necessaria per il percorso ottimale\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/{{reqId2}}/decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "{{reqId2}}",
+                "decide"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Bulk Decide (transazionale)",
+      "item": [
+        {
+          "name": "Bob propone modifica A (per bulk)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('bulkReqId1', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 3,\n      \"y\": 1,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bob propone modifica B (per bulk)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('bulkReqId2', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 1,\n      \"y\": 3,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alice - Bulk Decide (approva A, rifiuta B)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\"requestId\": {{bulkReqId1}}, \"action\": \"approve\"},\n    {\"requestId\": {{bulkReqId2}}, \"action\": \"reject\", \"reason\": \"Non necessaria\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/bulk-decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "bulk-decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bob propone modifica C (per test rollback transazionale)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('bulkReqId3', String(res.data.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenBob}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cells\": [\n    {\n      \"x\": 3,\n      \"y\": 2,\n      \"newValue\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bulk Decide con ID invalido (testa rollback -> 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\"requestId\": {{bulkReqId3}}, \"action\": \"approve\"},\n    {\"requestId\": 99999, \"action\": \"approve\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates/bulk-decide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates",
+                "bulk-decide"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verifica Rollback (modifica C ancora PENDING)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Utenti",
+      "item": [
+        {
+          "name": "Lista Utenti",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dettaglio Utente (credito residuo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userIdAlice}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userIdAlice}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Aggiorna Credito Utente (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokens\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userIdAlice}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userIdAlice}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ricarica Token Utente (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userIdAlice}}/recharge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userIdAlice}}",
+                "recharge"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "tokenAlice",
+      "value": ""
+    },
+    {
+      "key": "tokenBob",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userIdAlice",
+      "value": "1"
+    },
+    {
+      "key": "userIdBob",
+      "value": "2"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "modelId2D",
+      "value": "1"
+    },
+    {
+      "key": "modelId3D",
+      "value": "2"
+    },
+    {
+      "key": "reqId",
+      "value": "1"
+    },
+    {
+      "key": "reqId1",
+      "value": "1"
+    },
+    {
+      "key": "reqId2",
+      "value": "2"
+    },
+    {
+      "key": "reqId3D",
+      "value": "3"
+    },
+    {
+      "key": "bulkReqId1",
+      "value": "4"
+    },
+    {
+      "key": "bulkReqId2",
+      "value": "5"
+    },
+    {
+      "key": "bulkReqId3",
+      "value": "6"
+    }
+  ]
+}
