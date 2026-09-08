@@ -20,6 +20,7 @@ const createUserValidation = [
     .isEmail().withMessage("Email non valida")
     .normalizeEmail(),
   body('password')
+    .trim()
     .notEmpty().withMessage('La password è obbligatoria')
     .isLength({ min: 6 }).withMessage('La password deve essere di almeno 6 caratteri'),
   body('role')

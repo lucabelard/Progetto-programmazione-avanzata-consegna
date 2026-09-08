@@ -23,10 +23,6 @@ export class AuthController {
     try {
       const { name, email, password } = req.body;
 
-      if (!name || !email || !password) {
-        throw new ValidationError('name, email e password sono obbligatori');
-      }
-
       const result = await authService.register({ name, email, password });
 
       res.status(StatusCodes.CREATED).json({
@@ -51,10 +47,6 @@ export class AuthController {
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
-
-      if (!email || !password) {
-        throw new ValidationError('email e password sono obbligatori');
-      }
 
       const result = await authService.login(email, password);
 
