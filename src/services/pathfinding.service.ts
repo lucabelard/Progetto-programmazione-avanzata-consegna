@@ -72,10 +72,25 @@ export class PathfindingService {
     // Grid2DStrategy per GRID_2D, Grid3DStrategy per GRID_3D
     const strategy = PathfindingStrategyFactory.create(model.modelType);
 
-    //  7. Esegui il pathfinding (prima di scalare i token) 
+    //  7. Esegui il pathfinding (con TIMEOUT tramite Promise.race) 
     // La griglia dell'esecuzione usa latestVersion.gridData (snapshot approvato)
     const executionModel = { ...model.toJSON(), gridData: latestVersion.gridData } as typeof model;
-    const result = strategy.execute(executionModel as any, latestVersion, start, goal);
+    
+    // Creiamo una Promise per l'esecuzione del pathfinding
+    const pathfindingPromise = Promise.resolve().then(() => 
+      strategy.execute(executionModel as any, latestVersion, start, goal)
+    );
+
+    // Creiamo una Promise che rifiuta (lancia errore) dopo N millisecondi
+    const timeoutMs = 10000; // 10 secondi
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new AppError(`Timeout: Il calcolo ha impiegato più di ${timeoutMs}ms e il server l'ha interrotto`, StatusCodes.REQUEST_TIMEOUT));
+      }, timeoutMs);
+    });
+
+    // Mettiamo in "gara" le due Promise. Se il pathfinding ci mette più di 10 secondi, scatta l'errore!
+    const result = await Promise.race([pathfindingPromise, timeoutPromise]);
 
     //  8. Scala i token solo se l'esecuzione  andata a buon fine 
     await sequelize.transaction(async (t) => {
