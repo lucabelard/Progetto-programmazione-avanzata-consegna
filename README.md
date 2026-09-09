@@ -184,6 +184,8 @@ flowchart LR
   subgraph Sistema ["Sistema PathFinding Grid API"]
     UC1(["Registrarsi / Login"])
     UC2(["Creare modello 2D/3D"])
+    UC_GET(["Consultare i modelli disponibili"])
+    UC_GET_ID(["Consultare dettaglio modello"])
     UC3(["Proporre aggiornamento celle"])
     UC4(["Visualizzare aggiornamenti"])
     UC5(["Filtrare per stato/data/tipo/layerZ"])
@@ -197,6 +199,8 @@ flowchart LR
 
   U --> UC1
   U --> UC2
+  U --> UC_GET
+  U --> UC_GET_ID
   U --> UC3
   U --> UC4
   U --> UC5
@@ -312,7 +316,54 @@ sequenceDiagram
 
 ---
 
-## Come Avviare il Progetto
+## Diagramma di Sequenza – Esecuzione Pathfinding
+
+```mermaid
+sequenceDiagram
+  actor Alice as Creatore (Alice)
+  participant API as Express API
+  participant PathSVC as PathfindingService
+  participant DB as PostgreSQL
+  participant Strat as PathfindingStrategy
+
+  Alice->>API: POST /api/v1/models/1/execute
+  note right of Alice: { start, goal }
+  API->>API: authenticate()
+  API->>PathSVC: executePathfinding(modelId=1, userId=Alice, start, goal)
+  PathSVC->>DB: SELECT model WHERE id=1
+  DB-->>PathSVC: Model { creatorId: Alice, modelType: GRID_3D }
+  PathSVC->>PathSVC: Verifica: Alice == creatorId ? ✓
+  PathSVC->>Strat: PathfindingStrategyFactory.create("GRID_3D")
+  Strat-->>PathSVC: Grid3DStrategy
+  PathSVC->>Strat: execute(model, latestVersion, start, goal)
+  Strat->>Strat: adapter.findPath(grid, start, goal)
+  Strat-->>PathSVC: path: [{x,y,z}, ...]
+  PathSVC->>API: { found: true, path, ... }
+  API-->>Alice: 200 { success: true, data: { path } }
+```
+
+---
+
+## Diagramma a Stati – Macchina a Stati per le Update Requests
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING : proposeUpdate()
+  PENDING --> ACCEPTED : approve()
+  PENDING --> REJECTED : reject()
+  
+  ACCEPTED --> [*]
+  REJECTED --> [*]
+  
+  note right of PENDING
+    Stato iniziale alla creazione.
+    In attesa di decisione del creatore.
+  end note
+```
+
+---
+
+## Come Avviare e Testare il Progetto
 
 ### Con Docker (consigliato)
 
@@ -463,24 +514,58 @@ curl -X GET "http://localhost:3000/api/v1/models/1/updates?format=pdf&status=ACC
 
 ---
 
-## Test Jest
+## Test Automatizzati (Jest)
+
+La suite di test verifica i casi d'uso principali e i vincoli di sicurezza:
 
 ```bash
-# Esegui tutti i test
-npm test
+# Installa le dipendenze
+npm install
 
-# Test in modalità watch
-npm run test:watch
+# Esegui tutti i test e verifica l'output
+npm test
 ```
 
-### Test implementati
-
-| File | Cosa testa |
+| Suite di Test | Cosa verifica |
 |---|---|
-| `auth.middleware.test.ts` | JWT valido/invalido/mancante + checkCredit |
-| `update-request.middleware.test.ts` | Autorizzazione creatore + validazione coordinate 3D |
+| `auth.middleware.test.ts` | Sicurezza JWT, validazione firme, controlli sul credito residuo. |
+| `update-request.middleware.test.ts` | Vincoli di business: autorizzazione creatore, validazione coordinate 3D, controllo duplicati. |
+| `users.test.ts` | Health check, registrazione e login, vincoli di unicità email. |
+| `integration.test.ts` | Esecuzione del pathfinding 3D, rollback DB su errori, transazioni Bulk. |
 
-I test usano **SQLite in memoria** (`NODE_ENV=test`) — non richiedono un database PostgreSQL.
+*Nota: I test usano **SQLite in memoria** (`NODE_ENV=test`) e non richiedono un database PostgreSQL.*
+
+---
+
+## Diagramma delle Classi – Pattern Architetturali
+
+```mermaid
+classDiagram
+  class Controllers {
+    <<Presentation Layer>>
+    +validaRequest()
+    +formattaResponse()
+  }
+  
+  class Services {
+    <<Business Logic Layer>>
+    +orchestrazioneBusiness()
+    +gestioneTransazioni()
+  }
+  
+  class Repositories {
+    <<Data Access Layer>>
+    +querySequelize()
+  }
+  
+  class Database {
+    <<PostgreSQL>>
+  }
+  
+  Controllers --> Services : Chiama
+  Services --> Repositories : Delega DB
+  Repositories --> Database : Esegue SQL
+```
 
 ---
 
