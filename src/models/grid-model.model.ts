@@ -119,7 +119,7 @@ export class GridModel extends Model {
 
   /** Associazione con l'utente creatore */
   /** Relazione One-to-Many: un utente può creare molti modelli */
-  @BelongsTo(() => User, { foreignKey: 'creatorId', as: 'creator' })
+  @BelongsTo(() => User, { foreignKey: 'creatorId', as: 'creator', onDelete: 'CASCADE' })
   declare creator: User;
 
   /** Relazione One-to-Many con ModelVersion (un modello può avere molte versioni) */

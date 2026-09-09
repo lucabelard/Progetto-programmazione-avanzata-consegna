@@ -57,7 +57,7 @@ export class UpdateRequest extends Model {
   @Column(DataType.INTEGER)
   declare modelId: number;
 
-  @BelongsTo(() => GridModel, { foreignKey: 'modelId', as: 'model' })
+  @BelongsTo(() => GridModel, { foreignKey: 'modelId', as: 'model', onDelete: 'CASCADE' })
   declare model: GridModel;
 
   /**
@@ -69,7 +69,7 @@ export class UpdateRequest extends Model {
   @Column(DataType.INTEGER)
   declare baseVersionId: number;
 
-  @BelongsTo(() => ModelVersion, { foreignKey: 'baseVersionId', as: 'baseVersion' })
+  @BelongsTo(() => ModelVersion, { foreignKey: 'baseVersionId', as: 'baseVersion', onDelete: 'CASCADE' })
   declare baseVersion: ModelVersion;
 
   /**
@@ -87,7 +87,7 @@ export class UpdateRequest extends Model {
   @Column(DataType.INTEGER)
   declare proposerId: number;
 
-  @BelongsTo(() => User, { foreignKey: 'proposerId', as: 'proposer' })
+  @BelongsTo(() => User, { foreignKey: 'proposerId', as: 'proposer', onDelete: 'CASCADE' })
   declare proposer: User;
 
   /** Chi ha preso la decisione (null finch la richiesta  PENDING) */
@@ -96,7 +96,7 @@ export class UpdateRequest extends Model {
   @Column(DataType.INTEGER)
   declare approverId: number | null;
 
-  @BelongsTo(() => User, { foreignKey: 'approverId', as: 'approver' })
+  @BelongsTo(() => User, { foreignKey: 'approverId', as: 'approver', onDelete: 'SET NULL' })
   declare approver: User | null;
 
   /**

@@ -155,6 +155,51 @@
               ]
             }
           }
+        },
+        {
+          "name": "Login Admin -> salva tokenAdmin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('tokenAdmin', res.data.token);",
+                  "}",
+                  "if (res.success && res.data && res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userIdAdmin', String(res.data.user.id));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@gridpath.it\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
         }
       ]
     },
@@ -1192,7 +1237,7 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{tokenAlice}}"
+                "value": "Bearer {{tokenAdmin}}"
               }
             ],
             "body": {
@@ -1224,7 +1269,7 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{tokenAlice}}"
+                "value": "Bearer {{tokenAdmin}}"
               }
             ],
             "body": {
@@ -1242,6 +1287,61 @@
                 "users",
                 "{{userIdAlice}}",
                 "recharge"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crea Utente (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Charlie Admin\",\n  \"email\": \"charlie@example.it\",\n  \"password\": \"Password123!\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Elimina Utente (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "3"
               ]
             }
           }

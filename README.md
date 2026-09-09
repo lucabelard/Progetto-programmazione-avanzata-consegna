@@ -44,6 +44,16 @@ Il sistema realizza una piattaforma **crowd-sourcing** per la gestione di mappe 
 | POST | `/api/v1/models/:id/updates/bulk-decide` | Approva/rifiuta in bulk |
 | POST | `/api/v1/models/:id/updates/:reqId/decide` | Approva/rifiuta singola richiesta |
 
+#### Utenti
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| GET | `/api/v1/users` | Lista utenti (pubblico) |
+| GET | `/api/v1/users/:id` | Dettaglio utente (pubblico) |
+| POST | `/api/v1/users` | Crea utente (pubblico) |
+| PUT | `/api/v1/users/:id` | Aggiorna utente (JWT richiesto) |
+| DELETE | `/api/v1/users/:id` | Elimina utente (JWT richiesto, admin) |
+| POST | `/api/v1/users/:id/recharge` | Ricarica token (JWT richiesto, admin) |
+
 #### Pathfinding (JWT richiesto, solo creatore)
 | Metodo | Endpoint | Descrizione |
 |--------|----------|-------------|
@@ -114,6 +124,17 @@ curl -X GET "http://localhost:3000/api/v1/models/1/updates?format=pdf&status=ACC
   --output updates.pdf
 ```
 
+#### 6. Ricaricare token utente (solo admin)
+
+```bash
+curl -X POST http://localhost:3000/api/v1/users/2/recharge \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 50
+  }'
+```
+
 ### Errori Gestiti
 
 | Scenario | HTTP Status |
@@ -165,7 +186,7 @@ HTTP Request
        ▼
 ┌─────────────┐
 │  Database   │  ← PostgreSQL
-└─────────────┘
+└──────┬──────┘
 ```
 
 ### Modello Dati
@@ -244,6 +265,40 @@ flowchart LR
   UC4 -.->|include| UC5
   UC8 -.->|include| UC10
   UC9 -.->|include| UC10
+```
+
+### Diagramma di Interazione Globale (Interaction Overview)
+
+```mermaid
+flowchart TD
+    Start((Inizio)) --> Login[Login / Ricezione JWT]
+    Login --> API_Call{Chiamata API Protetta}
+    
+    API_Call --> Auth{Verifica JWT}
+    Auth -- Valido --> Router[Router / Dispatcher]
+    Auth -- Non Valido --> Err401[401 Unauthorized]
+    
+    Router --> |POST /models| Create[Creazione Modello]
+    Create --> CheckCred1{Credito Sufficiente?}
+    CheckCred1 -- Si --> DB1[(Salvataggio Modello e Versione 1)]
+    CheckCred1 -- No --> ErrCred[401 Credito Insufficiente]
+    
+    Router --> |POST /updates| Update[Proposta Aggiornamento]
+    Update --> CheckCred2{Credito Sufficiente?}
+    CheckCred2 -- Si --> IsCreator{Proponente == Creatore?}
+    CheckCred2 -- No --> ErrCred
+    IsCreator -- Si --> DB2[(Stato ACCEPTED + Nuova Versione)]
+    IsCreator -- No --> DB3[(Stato PENDING)]
+    
+    Router --> |POST /decide| Decide[Decisione Aggiornamento]
+    Decide --> IsAppr{Utente == Creatore?}
+    IsAppr -- Si --> Apply[Applica Modifiche (Approve/Reject)]
+    IsAppr -- No --> Err403[403 Forbidden]
+    
+    Router --> |POST /execute| Path[Esecuzione Pathfinding]
+    Path --> IsPathCr{Utente == Creatore?}
+    IsPathCr -- Si --> RunAStar[A* Strategy Adapter su Versione Attuale]
+    IsPathCr -- No --> Err403
 ```
 
 ### Diagramma di Sequenza – Login e Creazione Modello 3D

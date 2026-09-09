@@ -43,7 +43,7 @@ export class ModelVersion extends Model {
   @Column(DataType.INTEGER)
   declare modelId: number;
 
-  @BelongsTo(() => GridModel, { foreignKey: 'modelId', as: 'model' })
+  @BelongsTo(() => GridModel, { foreignKey: 'modelId', as: 'model', onDelete: 'CASCADE' })
   declare model: GridModel;
 
   /**
@@ -71,6 +71,9 @@ export class ModelVersion extends Model {
   @Column(DataType.INTEGER)
   declare proposedBy: number;
 
+  @BelongsTo(() => User, { foreignKey: 'proposedBy', as: 'proposer', onDelete: 'CASCADE' })
+  declare proposer: User;
+
   /**
    * Chi ha approvato la modifica.
    * Per la versione 1 (creazione),  lo stesso del proposer.
@@ -80,6 +83,9 @@ export class ModelVersion extends Model {
   @AllowNull(true)
   @Column(DataType.INTEGER)
   declare approvedBy: number | null;
+
+  @BelongsTo(() => User, { foreignKey: 'approvedBy', as: 'approver', onDelete: 'SET NULL' })
+  declare approver: User | null;
 
   /** Data in cui questa versione  diventata effettiva */
   @CreatedAt
