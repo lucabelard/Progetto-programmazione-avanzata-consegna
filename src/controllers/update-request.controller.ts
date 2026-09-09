@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { updateRequestService } from '../services/update-request.service';
 import { exportService } from '../services/export.service';
-import { UpdateRequestStatus, UpdateRequestFilters } from '../types/common';
+import { ModelType, UpdateRequestStatus, UpdateRequestFilters } from '../types/common';
 import { StatusCodes } from 'http-status-codes';
 import { ValidationError } from '../middleware/error.middleware';
 
@@ -77,14 +77,27 @@ export class UpdateRequestController {
         }
         filters.status = status as UpdateRequestStatus;
       }
-      //trasforma le date in oggetti Date in modo che il service
-      //possa usarle per filtrare le richieste (i parametri di query viaggiano come testo grezzo)
-      if (startDate) filters.startDate = new Date(startDate as string);
-      if (endDate) filters.endDate = new Date(endDate as string);
-      // non if (layerZ) perchè 0 è falsy quindi con z=0 l'if sarebbe risultato falso
+      
+      if (startDate) {
+        const d = new Date(startDate as string);
+        if (isNaN(d.getTime())) throw new ValidationError('startDate non è una data valida (usa formato ISO 8601)');
+        filters.startDate = d;
+      }
+      
+      if (endDate) {
+        const d = new Date(endDate as string);
+        if (isNaN(d.getTime())) throw new ValidationError('endDate non è una data valida (usa formato ISO 8601)');
+        filters.endDate = d;
+      }
+      
       if (layerZ !== undefined) filters.layerZ = Number(layerZ);
       
-      if (modelType) filters.modelType = modelType as any;
+      if (modelType) {
+        if (!Object.values(ModelType).includes(modelType as ModelType)) {
+          throw new ValidationError(`modelType non valido: ${modelType}. Valori accettati: GRID_2D, GRID_3D`);
+        }
+        filters.modelType = modelType as ModelType;
+      }
 
       const requests = await updateRequestService.getRequestsByModel(modelId, filters);
 
@@ -122,69 +135,7 @@ export class UpdateRequestController {
     }
   }
 
-  /**
-   * GET /api/v1/updates
-   *
-   * Restituisce la lista GLOBALE delle richieste di aggiornamento (su tutti i modelli).
-   * Supporta gli stessi filtri di list(), con l'aggiunta di modelId opzionale.
-   */
-  async listGlobal(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { status, startDate, endDate, layerZ, format, modelType, modelId } = req.query;
 
-      const filters: UpdateRequestFilters = {};
-
-      if (status) {
-        if (!Object.values(UpdateRequestStatus).includes(status as UpdateRequestStatus)) {
-          throw new ValidationError(`status non valido: ${status}. Valori accettati: PENDING, ACCEPTED, REJECTED`);
-        }
-        filters.status = status as UpdateRequestStatus;
-      }
-      if (startDate) filters.startDate = new Date(startDate as string);
-      if (endDate) filters.endDate = new Date(endDate as string);
-      if (layerZ !== undefined) filters.layerZ = Number(layerZ);
-      if (modelType) filters.modelType = modelType as any;
-
-      let requests: any[];
-      if (modelId) {
-        requests = await updateRequestService.getRequestsByModel(Number(modelId), filters);
-      } else {
-        requests = await updateRequestService.getAllRequests(filters);
-      }
-
-      // Formato di risposta: JSON (default) o PDF
-      if (format === 'pdf') {
-        const pdfData = requests.map(r => ({
-          id: r.id,
-          modello: r.model?.name ?? r.modelId,
-          stato: r.status,
-          proponente: r.proposer?.email ?? r.proposerId,
-          celle: JSON.stringify(r.cells),
-          dataRichiesta: r.requestedAt,
-          dataDecisione: r.decidedAt,
-          motivazione: r.reason ?? '—',
-        }));
-
-        const pdfBuffer = await exportService.toPDF(
-          modelId ? `Richieste di aggiornamento – Modello #${modelId}` : `Richieste di aggiornamento globali`,
-          pdfData
-        );
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="updates${modelId ? `-model-${modelId}` : '-global'}.pdf"`);
-        res.status(StatusCodes.OK).send(pdfBuffer);
-        return;
-      }
-
-      res.status(StatusCodes.OK).json({
-        success: true,
-        count: requests.length,
-        data: requests,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
 
   /**
    * POST /api/v1/models/:id/updates/:reqId/decide

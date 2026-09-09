@@ -82,14 +82,7 @@ export class UpdateRequestRepository extends BaseRepository<UpdateRequest> {
     return this.findWithWhereAndFilters(where, filters);
   }
 
-  /**
-   * Restituisce tutte le richieste (globale) con filtri opzionali.
-   */
-  async findAllWithFilters(
-    filters: UpdateRequestFilters = {}
-  ): Promise<UpdateRequest[]> {
-    return this.findWithWhereAndFilters({}, filters);
-  }
+
 
   private async findWithWhereAndFilters(
     where: Record<string, unknown>,
