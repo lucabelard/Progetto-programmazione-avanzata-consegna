@@ -244,6 +244,13 @@ export class UpdateRequestService {
     return updateRequestRepository.findByModelWithFilters(modelId, filters);
   }
 
+  /**
+   * Restituisce tutte le richieste (globale) con filtri opzionali.
+   */
+  async getAllRequests(filters: UpdateRequestFilters = {}): Promise<UpdateRequest[]> {
+    return updateRequestRepository.findAllWithFilters(filters);
+  }
+
   // 
   // Metodi privati di validazione e applicazione modifiche
   // 

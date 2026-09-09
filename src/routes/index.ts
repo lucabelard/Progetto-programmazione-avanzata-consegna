@@ -43,4 +43,9 @@ rootRouter.use(`${apiPrefix}/models/:id`, pathfindingRouter);
 // Utenti
 rootRouter.use(`${apiPrefix}/users`, userRouter);
 
+// Lista globale aggiornamenti
+import { updateRequestController } from '../controllers/update-request.controller';
+import { authenticate } from '../middleware/auth.middleware';
+rootRouter.get(`${apiPrefix}/updates`, authenticate, updateRequestController.listGlobal);
+
 export default rootRouter;

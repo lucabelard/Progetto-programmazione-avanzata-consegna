@@ -61,12 +61,13 @@ export class UpdateRequestController {
    *   startDate  → data di inizio (ISO 8601)
    *   endDate    → data di fine (ISO 8601)
    *   layerZ     → filtra per layer z (solo modelli 3D)
+   *   modelType  → filtra per tipo di modello (GRID_2D o GRID_3D)
    *   format     → 'json' (default) | 'pdf'
    */
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const modelId = Number(req.params.id);
-      const { status, startDate, endDate, layerZ, format } = req.query;
+      const { status, startDate, endDate, layerZ, format, modelType } = req.query;
 
       const filters: UpdateRequestFilters = {};
 
@@ -82,6 +83,8 @@ export class UpdateRequestController {
       if (endDate) filters.endDate = new Date(endDate as string);
       // non if (layerZ) perchè 0 è falsy quindi con z=0 l'if sarebbe risultato falso
       if (layerZ !== undefined) filters.layerZ = Number(layerZ);
+      
+      if (modelType) filters.modelType = modelType as any;
 
       const requests = await updateRequestService.getRequestsByModel(modelId, filters);
 
@@ -109,6 +112,70 @@ export class UpdateRequestController {
       }
 
       // Risposta JSON (default)
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: requests.length,
+        data: requests,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/updates
+   *
+   * Restituisce la lista GLOBALE delle richieste di aggiornamento (su tutti i modelli).
+   * Supporta gli stessi filtri di list(), con l'aggiunta di modelId opzionale.
+   */
+  async listGlobal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status, startDate, endDate, layerZ, format, modelType, modelId } = req.query;
+
+      const filters: UpdateRequestFilters = {};
+
+      if (status) {
+        if (!Object.values(UpdateRequestStatus).includes(status as UpdateRequestStatus)) {
+          throw new ValidationError(`status non valido: ${status}. Valori accettati: PENDING, ACCEPTED, REJECTED`);
+        }
+        filters.status = status as UpdateRequestStatus;
+      }
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (layerZ !== undefined) filters.layerZ = Number(layerZ);
+      if (modelType) filters.modelType = modelType as any;
+
+      let requests: any[];
+      if (modelId) {
+        requests = await updateRequestService.getRequestsByModel(Number(modelId), filters);
+      } else {
+        requests = await updateRequestService.getAllRequests(filters);
+      }
+
+      // Formato di risposta: JSON (default) o PDF
+      if (format === 'pdf') {
+        const pdfData = requests.map(r => ({
+          id: r.id,
+          modello: r.model?.name ?? r.modelId,
+          stato: r.status,
+          proponente: r.proposer?.email ?? r.proposerId,
+          celle: JSON.stringify(r.cells),
+          dataRichiesta: r.requestedAt,
+          dataDecisione: r.decidedAt,
+          motivazione: r.reason ?? '—',
+        }));
+
+        const pdfBuffer = await exportService.toPDF(
+          modelId ? `Richieste di aggiornamento – Modello #${modelId}` : `Richieste di aggiornamento globali`,
+          pdfData
+        );
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="updates${modelId ? `-model-${modelId}` : '-global'}.pdf"`);
+        res.status(StatusCodes.OK).send(pdfBuffer);
+        return;
+      }
+
       res.status(StatusCodes.OK).json({
         success: true,
         count: requests.length,

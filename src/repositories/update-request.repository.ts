@@ -79,6 +79,22 @@ export class UpdateRequestRepository extends BaseRepository<UpdateRequest> {
     filters: UpdateRequestFilters = {}
   ): Promise<UpdateRequest[]> {
     const where: Record<string, unknown> = { modelId };
+    return this.findWithWhereAndFilters(where, filters);
+  }
+
+  /**
+   * Restituisce tutte le richieste (globale) con filtri opzionali.
+   */
+  async findAllWithFilters(
+    filters: UpdateRequestFilters = {}
+  ): Promise<UpdateRequest[]> {
+    return this.findWithWhereAndFilters({}, filters);
+  }
+
+  private async findWithWhereAndFilters(
+    where: Record<string, unknown>,
+    filters: UpdateRequestFilters
+  ): Promise<UpdateRequest[]> {
 
     // Filtro per stato
     if (filters.status) {
