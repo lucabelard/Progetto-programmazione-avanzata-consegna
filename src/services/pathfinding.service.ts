@@ -75,9 +75,9 @@ export class PathfindingService {
     //  7. Esegui il pathfinding (con TIMEOUT tramite Promise.race) 
     // La griglia dell'esecuzione usa latestVersion.gridData (snapshot approvato)
     const executionModel = { ...model.toJSON(), gridData: latestVersion.gridData } as typeof model;
-    
+
     // Creiamo una Promise per l'esecuzione del pathfinding
-    const pathfindingPromise = Promise.resolve().then(() => 
+    const pathfindingPromise = Promise.resolve().then(() =>
       strategy.execute(executionModel as any, latestVersion, start, goal)
     );
 
@@ -89,7 +89,7 @@ export class PathfindingService {
       }, timeoutMs);
     });
 
-    // Mettiamo in "gara" le due Promise. Se il pathfinding ci mette più di 10 secondi, scatta l'errore!
+    // Mettiamo in "gara" le due Promise. Se il pathfinding ci mette più di 10 secondi, scatta l'errore
     const result = await Promise.race([pathfindingPromise, timeoutPromise]);
 
     //  8. Scala i token solo se l'esecuzione  andata a buon fine 

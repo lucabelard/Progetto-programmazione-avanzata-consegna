@@ -19,26 +19,120 @@ Il sistema realizza una piattaforma **crowd-sourcing** per la gestione di mappe 
 
 ---
 
-## Stack Tecnologico
+## Dettagli delle Richieste
 
-| Componente | Tecnologia |
+### Endpoint API
+
+#### Autenticazione (pubblici)
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/register` | Registra un nuovo utente |
+| POST | `/api/v1/auth/login` | Login e ottieni il JWT |
+
+#### Modelli di Griglia (JWT richiesto)
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| POST | `/api/v1/models` | Crea modello (costa token) |
+| GET | `/api/v1/models` | Lista modelli |
+| GET | `/api/v1/models/:id` | Dettaglio modello |
+
+#### Aggiornamenti (JWT richiesto)
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| POST | `/api/v1/models/:id/updates` | Proponi aggiornamento |
+| GET | `/api/v1/models/:id/updates` | Lista aggiornamenti (JSON o PDF) |
+| POST | `/api/v1/models/:id/updates/bulk-decide` | Approva/rifiuta in bulk |
+| POST | `/api/v1/models/:id/updates/:reqId/decide` | Approva/rifiuta singola richiesta |
+
+#### Pathfinding (JWT richiesto, solo creatore)
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| POST | `/api/v1/models/:id/execute` | Esegui pathfinding |
+
+### Esempi di Chiamate API
+
+#### 1. Registrazione
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alice Rossi",
+    "email": "alice@example.it",
+    "password": "Password123!"
+  }'
+```
+
+#### 2. Creazione Modello GRID_3D
+
+```bash
+curl -X POST http://localhost:3000/api/v1/models \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Edificio 3 Piani",
+    "modelType": "GRID_3D",
+    "width": 4, "height": 4, "depth": 3,
+    "gridData": [
+      [[0,0,0,0],[0,1,0,0],[0,0,0,0],[0,0,0,0]],
+      [[0,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0]],
+      [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]
+    ]
+  }'
+```
+
+#### 3. Proposta Aggiornamento 3D
+
+```bash
+curl -X POST http://localhost:3000/api/v1/models/1/updates \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cells": [
+      { "x": 2, "y": 2, "z": 1, "newValue": 1 }
+    ]
+  }'
+```
+
+#### 4. Esecuzione Pathfinding 3D
+
+```bash
+curl -X POST http://localhost:3000/api/v1/models/1/execute \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start": { "x": 0, "y": 0, "z": 0 },
+    "goal":  { "x": 3, "y": 3, "z": 2 }
+  }'
+```
+
+#### 5. Export PDF
+
+```bash
+curl -X GET "http://localhost:3000/api/v1/models/1/updates?format=pdf&status=ACCEPTED" \
+  -H "Authorization: Bearer <TOKEN>" \
+  --output updates.pdf
+```
+
+### Errori Gestiti
+
+| Scenario | HTTP Status |
 |---|---|
-| Runtime | Node.js 20 |
-| Framework | Express.js 4 |
-| Linguaggio | TypeScript 5 |
-| ORM | Sequelize 6 + sequelize-typescript |
-| Database | PostgreSQL (SQLite in test) |
-| Autenticazione | JWT RS256 (`jsonwebtoken`) |
-| Password hashing | bcrypt |
-| Pathfinding | PathFinding3D.js (via Adapter) + A\* fallback |
-| Export PDF | PDFKit |
-| Test | Jest + Supertest |
-| Container | Docker + Docker Compose |
-| Logging | Winston |
+| Token JWT mancante o malformato | `401 Unauthorized` |
+| Credito esaurito | `401 Unauthorized` |
+| Permessi insufficienti (non creatore) | `403 Forbidden` |
+| Modello non trovato | `404 Not Found` |
+| Coordinate fuori griglia | `400 Bad Request` |
+| Celle duplicate nella richiesta | `400 Bad Request` |
+| Modifica nulla (cella già nello stato proposto) | `400 Bad Request` |
+| Richiesta già in stato ACCEPTED o REJECTED | `409 Conflict` |
+| Path non trovato | `200 OK` con `found: false` |
 
 ---
 
-## Architettura a Strati
+## Progettazione - UML
+
+### Architettura a Strati
 
 ```
 HTTP Request
@@ -74,9 +168,252 @@ HTTP Request
 └─────────────┘
 ```
 
+### Modello Dati
+
+```
+┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│    users     │     │   grid_models    │     │  model_versions  │
+│──────────────│     │──────────────────│     │──────────────────│
+│ id (PK)      │─┐   │ id (PK)          │─┐   │ id (PK)          │
+│ name         │ │   │ name             │ │   │ model_id (FK)    │
+│ email        │ │   │ model_type       │ │   │ version_number   │
+│ password     │ │   │ width            │ │   │ grid_data (JSON) │
+│ role         │ │   │ height           │ │   │ proposed_by (FK) │
+│ tokens       │ │   │ depth            │ │   │ approved_by (FK) │
+│ is_active    │ │   │ grid_data (JSON) │ │   │ created_at       │
+│ created_at   │ └──│ creator_id (FK)  │ │   └──────────────────┘
+│ updated_at   │     │ created_at       │ │
+└──────────────┘     │ updated_at       │ │   ┌──────────────────────┐
+                     └──────────────────┘ │   │   update_requests    │
+                                          │   │──────────────────────│
+                                          └──│ model_id (FK)        │
+                                              │ base_version_id (FK) │
+                                              │ result_version_id    │
+                                              │ proposer_id (FK)     │
+                                              │ approver_id (FK)     │
+                                              │ cells (JSON)         │
+                                              │ status (ENUM)        │
+                                              │ reason               │
+                                              │ requested_at         │
+                                              │ decided_at           │
+                                              └──────────────────────┘
+```
+
+### Diagramma UML – Casi d'Uso
+
+```mermaid
+flowchart LR
+  subgraph Attori
+    U(["Utente"])
+    C(["Creatore"])
+    A(["Admin"])
+  end
+
+  subgraph Sistema ["Sistema PathFinding Grid API"]
+    UC1(["Registrarsi / Login"])
+    UC2(["Creare modello 2D/3D"])
+    UC_GET(["Consultare i modelli disponibili"])
+    UC_GET_ID(["Consultare dettaglio modello"])
+    UC3(["Proporre aggiornamento celle"])
+    UC4(["Visualizzare aggiornamenti"])
+    UC5(["Filtrare per stato/data/tipo/layerZ"])
+    UC6(["Eseguire pathfinding A*"])
+    UC7(["Esportare in JSON / PDF"])
+    UC8(["Approvare richiesta PENDING"])
+    UC9(["Rifiutare richiesta PENDING"])
+    UC10(["Approvazione/rifiuto bulk"])
+    UC11(["Ricaricare token utente"])
+  end
+
+  U --> UC1
+  U --> UC2
+  U --> UC_GET
+  U --> UC_GET_ID
+  U --> UC3
+  U --> UC4
+  U --> UC5
+  U --> UC7
+
+  C --> UC6
+  C --> UC8
+  C --> UC9
+  C --> UC10
+
+  A --> UC11
+
+  UC4 -.->|include| UC5
+  UC8 -.->|include| UC10
+  UC9 -.->|include| UC10
+```
+
+### Diagramma di Sequenza – Login e Creazione Modello 3D
+
+```mermaid
+sequenceDiagram
+  actor Alice
+  participant API as Express API
+  participant Auth as AuthService
+  participant DB as PostgreSQL
+
+  Alice->>API: POST /api/v1/auth/login
+  note right of Alice: { email, password }
+  API->>Auth: login(email, password)
+  Auth->>DB: SELECT user WHERE email=...
+  DB-->>Auth: User { tokens: 100 }
+  Auth->>Auth: bcrypt.compare(password, hash)
+  Auth->>Auth: jwt.sign(payload, privateKey, RS256)
+  Auth-->>API: { user, token }
+  API-->>Alice: 200 { success: true, data: { user, token } }
+
+  Alice->>API: POST /api/v1/models
+  note right of Alice: Authorization: Bearer <JWT>
+  API->>API: authenticate() — verifica firma RS256
+  API->>DB: SELECT user WHERE id=... (checkCredit)
+  DB-->>API: tokens = 100 > 0 ✓
+  API->>DB: BEGIN TRANSACTION
+  API->>DB: INSERT INTO grid_models (...)
+  API->>DB: INSERT INTO model_versions (versionNumber=1, ...)
+  API->>DB: UPDATE users SET tokens = tokens - 0.675
+  note right of API: costo = 0.025 × (3×3×3) = 0.675 token
+  API->>DB: COMMIT
+  DB-->>API: model { id: 1, modelType: GRID_3D, ... }
+  API-->>Alice: 201 { success: true, data: { model, version, tokenCost } }
+```
+
+### Diagramma di Sequenza – Aggiornamento 3D con Approvazione/Rifiuto
+
+```mermaid
+sequenceDiagram
+  actor Alice as Alice (utente)
+  participant API as Express API
+  participant SVC as UpdateRequestService
+  participant DB as PostgreSQL
+  actor Bob as Bob (creatore)
+
+  Note over Alice,Bob: Flusso crowd-sourcing su modello 3D (GRID_3D)
+
+  Alice->>API: POST /api/v1/models/2/updates
+  note right of Alice: cells: [{x:1, y:1, z:0, newValue:1}]
+  API->>API: authenticate() + checkCredit()
+  API->>SVC: proposeUpdate(modelId=2, cells, proposerId=Alice)
+  SVC->>DB: SELECT grid_model WHERE id=2
+  DB-->>SVC: model { creatorId: Bob, modelType: GRID_3D }
+  SVC->>SVC: validateCells() — controlla z, bounds, duplicati, valori
+  SVC->>SVC: tokenCost = 0.25 × 1 cella = 0.25
+  SVC->>DB: BEGIN TRANSACTION
+  SVC->>DB: UPDATE users SET tokens = tokens - 0.25 (Alice)
+  SVC->>DB: INSERT INTO update_requests (status=PENDING, ...)
+  SVC->>DB: COMMIT
+  DB-->>SVC: UpdateRequest { id:5, status: PENDING }
+  API-->>Alice: 201 { success:true, data: { id:5, status:"PENDING" } }
+
+  Note over Bob,API: Il creatore vede le richieste pending e decide
+
+  Bob->>API: POST /api/v1/models/2/updates/5/decide
+  note right of Bob: { action: "approve" }
+  API->>API: authenticate() — verifica Bob
+  API->>SVC: decideRequest(requestId=5, approverId=Bob, approve)
+  SVC->>DB: SELECT update_request WHERE id=5
+  DB-->>SVC: request { status: PENDING } ✓
+  SVC->>SVC: StateContext.approve() — PENDING → ACCEPTED
+  SVC->>DB: BEGIN TRANSACTION
+  SVC->>SVC: applyChanges(gridData, cells) — deep clone + modifica
+  SVC->>DB: UPDATE grid_models SET grid_data=... WHERE id=2
+  SVC->>DB: INSERT INTO model_versions (versionNumber=2, proposedBy=Alice, approvedBy=Bob)
+  SVC->>DB: UPDATE update_requests SET status=ACCEPTED, decided_at=NOW()
+  SVC->>DB: COMMIT
+  DB-->>SVC: UpdateRequest { status: ACCEPTED, resultVersionId: 3 }
+  API-->>Bob: 200 { success:true, data: { status:"ACCEPTED" } }
+
+  Note over Bob,API: Caso alternativo — Rifiuto
+
+  Bob->>API: POST /api/v1/models/2/updates/6/decide
+  note right of Bob: { action: "reject", reason: "Voxel necessario" }
+  API->>SVC: decideRequest(requestId=6, approverId=Bob, reject)
+  SVC->>SVC: StateContext.reject() — PENDING → REJECTED
+  SVC->>DB: BEGIN TRANSACTION
+  note right of DB: Griglia NON viene modificata
+  SVC->>DB: UPDATE update_requests SET status=REJECTED, reason=...
+  SVC->>DB: COMMIT
+  API-->>Bob: 200 { success:true, data: { status:"REJECTED" } }
+```
+
+### Diagramma di Sequenza – Esecuzione Pathfinding
+
+```mermaid
+sequenceDiagram
+  actor Alice as Creatore (Alice)
+  participant API as Express API
+  participant PathSVC as PathfindingService
+  participant DB as PostgreSQL
+  participant Strat as PathfindingStrategy
+
+  Alice->>API: POST /api/v1/models/1/execute
+  note right of Alice: { start, goal }
+  API->>API: authenticate()
+  API->>PathSVC: executePathfinding(modelId=1, userId=Alice, start, goal)
+  PathSVC->>DB: SELECT model WHERE id=1
+  DB-->>PathSVC: Model { creatorId: Alice, modelType: GRID_3D }
+  PathSVC->>PathSVC: Verifica: Alice == creatorId ? ✓
+  PathSVC->>Strat: PathfindingStrategyFactory.create("GRID_3D")
+  Strat-->>PathSVC: Grid3DStrategy
+  PathSVC->>Strat: execute(model, latestVersion, start, goal)
+  Strat->>Strat: adapter.findPath(grid, start, goal)
+  Strat-->>PathSVC: path: [{x,y,z}, ...]
+  PathSVC->>API: { found: true, path, ... }
+  API-->>Alice: 200 { success: true, data: { path } }
+```
+
+### Diagramma a Stati – Macchina a Stati per le Update Requests
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING : proposeUpdate()
+  PENDING --> ACCEPTED : approve()
+  PENDING --> REJECTED : reject()
+  
+  ACCEPTED --> [*]
+  REJECTED --> [*]
+  
+  note right of PENDING
+    Stato iniziale alla creazione.
+    In attesa di decisione del creatore.
+  end note
+```
+
+### Diagramma delle Classi – Pattern Architetturali
+
+```mermaid
+classDiagram
+  class Controllers {
+    <<Presentation Layer>>
+    +validaRequest()
+    +formattaResponse()
+  }
+  
+  class Services {
+    <<Business Logic Layer>>
+    +orchestrazioneBusiness()
+    +gestioneTransazioni()
+  }
+  
+  class Repositories {
+    <<Data Access Layer>>
+    +querySequelize()
+  }
+  
+  class Database {
+    <<PostgreSQL>>
+  }
+  
+  Controllers --> Services : Chiama
+  Services --> Repositories : Delega DB
+  Repositories --> Database : Esegue SQL
+```
+
 ---
 
-## Design Pattern Implementati
+## Progettazione - Pattern
 
 ### 1. Repository Pattern
 **File:** `src/repositories/`
@@ -138,232 +475,7 @@ ctx.reject();  // lancia AppError: già in stato ACCEPTED
 
 ---
 
-## Modello Dati
-
-```
-┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│    users     │     │   grid_models    │     │  model_versions  │
-│──────────────│     │──────────────────│     │──────────────────│
-│ id (PK)      │─┐   │ id (PK)          │─┐   │ id (PK)          │
-│ name         │ │   │ name             │ │   │ model_id (FK)    │
-│ email        │ │   │ model_type       │ │   │ version_number   │
-│ password     │ │   │ width            │ │   │ grid_data (JSON) │
-│ role         │ │   │ height           │ │   │ proposed_by (FK) │
-│ tokens       │ │   │ depth            │ │   │ approved_by (FK) │
-│ is_active    │ │   │ grid_data (JSON) │ │   │ created_at       │
-│ created_at   │ └──│ creator_id (FK)  │ │   └──────────────────┘
-│ updated_at   │     │ created_at       │ │
-└──────────────┘     │ updated_at       │ │   ┌──────────────────────┐
-                     └──────────────────┘ │   │   update_requests    │
-                                          │   │──────────────────────│
-                                          └──│ model_id (FK)        │
-                                              │ base_version_id (FK) │
-                                              │ result_version_id    │
-                                              │ proposer_id (FK)     │
-                                              │ approver_id (FK)     │
-                                              │ cells (JSON)         │
-                                              │ status (ENUM)        │
-                                              │ reason               │
-                                              │ requested_at         │
-                                              │ decided_at           │
-                                              └──────────────────────┘
-```
-
----
-
-## Diagramma UML – Casi d'Uso
-
-```mermaid
-flowchart LR
-  subgraph Attori
-    U(["Utente"])
-    C(["Creatore"])
-    A(["Admin"])
-  end
-
-  subgraph Sistema ["Sistema PathFinding Grid API"]
-    UC1(["Registrarsi / Login"])
-    UC2(["Creare modello 2D/3D"])
-    UC_GET(["Consultare i modelli disponibili"])
-    UC_GET_ID(["Consultare dettaglio modello"])
-    UC3(["Proporre aggiornamento celle"])
-    UC4(["Visualizzare aggiornamenti"])
-    UC5(["Filtrare per stato/data/tipo/layerZ"])
-    UC6(["Eseguire pathfinding A*"])
-    UC7(["Esportare in JSON / PDF"])
-    UC8(["Approvare richiesta PENDING"])
-    UC9(["Rifiutare richiesta PENDING"])
-    UC10(["Approvazione/rifiuto bulk"])
-    UC11(["Ricaricare token utente"])
-  end
-
-  U --> UC1
-  U --> UC2
-  U --> UC_GET
-  U --> UC_GET_ID
-  U --> UC3
-  U --> UC4
-  U --> UC5
-  U --> UC7
-
-  C --> UC6
-  C --> UC8
-  C --> UC9
-  C --> UC10
-
-  A --> UC11
-
-  UC4 -.->|include| UC5
-  UC8 -.->|include| UC10
-  UC9 -.->|include| UC10
-```
-
----
-
-## Diagramma di Sequenza – Login e Creazione Modello 3D
-
-```mermaid
-sequenceDiagram
-  actor Alice
-  participant API as Express API
-  participant Auth as AuthService
-  participant DB as PostgreSQL
-
-  Alice->>API: POST /api/v1/auth/login
-  note right of Alice: { email, password }
-  API->>Auth: login(email, password)
-  Auth->>DB: SELECT user WHERE email=...
-  DB-->>Auth: User { tokens: 100 }
-  Auth->>Auth: bcrypt.compare(password, hash)
-  Auth->>Auth: jwt.sign(payload, privateKey, RS256)
-  Auth-->>API: { user, token }
-  API-->>Alice: 200 { success: true, data: { user, token } }
-
-  Alice->>API: POST /api/v1/models
-  note right of Alice: Authorization: Bearer <JWT>
-  API->>API: authenticate() — verifica firma RS256
-  API->>DB: SELECT user WHERE id=... (checkCredit)
-  DB-->>API: tokens = 100 > 0 ✓
-  API->>DB: BEGIN TRANSACTION
-  API->>DB: INSERT INTO grid_models (...)
-  API->>DB: INSERT INTO model_versions (versionNumber=1, ...)
-  API->>DB: UPDATE users SET tokens = tokens - 0.675
-  note right of API: costo = 0.025 × (3×3×3) = 0.675 token
-  API->>DB: COMMIT
-  DB-->>API: model { id: 1, modelType: GRID_3D, ... }
-  API-->>Alice: 201 { success: true, data: { model, version, tokenCost } }
-```
-
----
-
-## Diagramma di Sequenza – Aggiornamento 3D con Approvazione/Rifiuto
-
-```mermaid
-sequenceDiagram
-  actor Alice as Alice (utente)
-  participant API as Express API
-  participant SVC as UpdateRequestService
-  participant DB as PostgreSQL
-  actor Bob as Bob (creatore)
-
-  Note over Alice,Bob: Flusso crowd-sourcing su modello 3D (GRID_3D)
-
-  Alice->>API: POST /api/v1/models/2/updates
-  note right of Alice: cells: [{x:1, y:1, z:0, newValue:1}]
-  API->>API: authenticate() + checkCredit()
-  API->>SVC: proposeUpdate(modelId=2, cells, proposerId=Alice)
-  SVC->>DB: SELECT grid_model WHERE id=2
-  DB-->>SVC: model { creatorId: Bob, modelType: GRID_3D }
-  SVC->>SVC: validateCells() — controlla z, bounds, duplicati, valori
-  SVC->>SVC: tokenCost = 0.25 × 1 cella = 0.25
-  SVC->>DB: BEGIN TRANSACTION
-  SVC->>DB: UPDATE users SET tokens = tokens - 0.25 (Alice)
-  SVC->>DB: INSERT INTO update_requests (status=PENDING, ...)
-  SVC->>DB: COMMIT
-  DB-->>SVC: UpdateRequest { id:5, status: PENDING }
-  API-->>Alice: 201 { success:true, data: { id:5, status:"PENDING" } }
-
-  Note over Bob,API: Il creatore vede le richieste pending e decide
-
-  Bob->>API: POST /api/v1/models/2/updates/5/decide
-  note right of Bob: { action: "approve" }
-  API->>API: authenticate() — verifica Bob
-  API->>SVC: decideRequest(requestId=5, approverId=Bob, approve)
-  SVC->>DB: SELECT update_request WHERE id=5
-  DB-->>SVC: request { status: PENDING } ✓
-  SVC->>SVC: StateContext.approve() — PENDING → ACCEPTED
-  SVC->>DB: BEGIN TRANSACTION
-  SVC->>SVC: applyChanges(gridData, cells) — deep clone + modifica
-  SVC->>DB: UPDATE grid_models SET grid_data=... WHERE id=2
-  SVC->>DB: INSERT INTO model_versions (versionNumber=2, proposedBy=Alice, approvedBy=Bob)
-  SVC->>DB: UPDATE update_requests SET status=ACCEPTED, decided_at=NOW()
-  SVC->>DB: COMMIT
-  DB-->>SVC: UpdateRequest { status: ACCEPTED, resultVersionId: 3 }
-  API-->>Bob: 200 { success:true, data: { status:"ACCEPTED" } }
-
-  Note over Bob,API: Caso alternativo — Rifiuto
-
-  Bob->>API: POST /api/v1/models/2/updates/6/decide
-  note right of Bob: { action: "reject", reason: "Voxel necessario" }
-  API->>SVC: decideRequest(requestId=6, approverId=Bob, reject)
-  SVC->>SVC: StateContext.reject() — PENDING → REJECTED
-  SVC->>DB: BEGIN TRANSACTION
-  note right of DB: Griglia NON viene modificata
-  SVC->>DB: UPDATE update_requests SET status=REJECTED, reason=...
-  SVC->>DB: COMMIT
-  API-->>Bob: 200 { success:true, data: { status:"REJECTED" } }
-```
-
----
-
-## Diagramma di Sequenza – Esecuzione Pathfinding
-
-```mermaid
-sequenceDiagram
-  actor Alice as Creatore (Alice)
-  participant API as Express API
-  participant PathSVC as PathfindingService
-  participant DB as PostgreSQL
-  participant Strat as PathfindingStrategy
-
-  Alice->>API: POST /api/v1/models/1/execute
-  note right of Alice: { start, goal }
-  API->>API: authenticate()
-  API->>PathSVC: executePathfinding(modelId=1, userId=Alice, start, goal)
-  PathSVC->>DB: SELECT model WHERE id=1
-  DB-->>PathSVC: Model { creatorId: Alice, modelType: GRID_3D }
-  PathSVC->>PathSVC: Verifica: Alice == creatorId ? ✓
-  PathSVC->>Strat: PathfindingStrategyFactory.create("GRID_3D")
-  Strat-->>PathSVC: Grid3DStrategy
-  PathSVC->>Strat: execute(model, latestVersion, start, goal)
-  Strat->>Strat: adapter.findPath(grid, start, goal)
-  Strat-->>PathSVC: path: [{x,y,z}, ...]
-  PathSVC->>API: { found: true, path, ... }
-  API-->>Alice: 200 { success: true, data: { path } }
-```
-
----
-
-## Diagramma a Stati – Macchina a Stati per le Update Requests
-
-```mermaid
-stateDiagram-v2
-  [*] --> PENDING : proposeUpdate()
-  PENDING --> ACCEPTED : approve()
-  PENDING --> REJECTED : reject()
-  
-  ACCEPTED --> [*]
-  REJECTED --> [*]
-  
-  note right of PENDING
-    Stato iniziale alla creazione.
-    In attesa di decisione del creatore.
-  end note
-```
-
----
-
-## Come Avviare e Testare il Progetto
+## Avvio del Servizio
 
 ### Con Docker (consigliato)
 
@@ -401,122 +513,11 @@ npm run dev
 
 ---
 
-## Endpoint API
+## Test del Progetto
 
-### Autenticazione (pubblici)
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/register` | Registra un nuovo utente |
-| POST | `/api/v1/auth/login` | Login e ottieni il JWT |
+É possibile eseguire una serie di test predefiniti importando all'interno di Postman la collection situata all'interno della root directory di tale repository.
 
-### Modelli di Griglia (JWT richiesto)
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| POST | `/api/v1/models` | Crea modello (costa token) |
-| GET | `/api/v1/models` | Lista modelli |
-| GET | `/api/v1/models/:id` | Dettaglio modello |
-
-### Aggiornamenti (JWT richiesto)
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| POST | `/api/v1/models/:id/updates` | Proponi aggiornamento |
-| GET | `/api/v1/models/:id/updates` | Lista aggiornamenti (JSON o PDF) |
-| POST | `/api/v1/models/:id/updates/bulk-decide` | Approva/rifiuta in bulk |
-| POST | `/api/v1/models/:id/updates/:reqId/decide` | Approva/rifiuta singola richiesta |
-
-### Pathfinding (JWT richiesto, solo creatore)
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| POST | `/api/v1/models/:id/execute` | Esegui pathfinding |
-
----
-
-## Esempi di Chiamate API
-
-### 1. Registrazione
-
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Alice Rossi",
-    "email": "alice@example.it",
-    "password": "Password123!"
-  }'
-```
-
-### 2. Creazione Modello GRID_3D
-
-```bash
-curl -X POST http://localhost:3000/api/v1/models \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Edificio 3 Piani",
-    "modelType": "GRID_3D",
-    "width": 4, "height": 4, "depth": 3,
-    "gridData": [
-      [[0,0,0,0],[0,1,0,0],[0,0,0,0],[0,0,0,0]],
-      [[0,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0]],
-      [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]
-    ]
-  }'
-```
-
-### 3. Proposta Aggiornamento 3D
-
-```bash
-curl -X POST http://localhost:3000/api/v1/models/1/updates \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cells": [
-      { "x": 2, "y": 2, "z": 1, "newValue": 1 }
-    ]
-  }'
-```
-
-### 4. Esecuzione Pathfinding 3D
-
-```bash
-curl -X POST http://localhost:3000/api/v1/models/1/execute \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "start": { "x": 0, "y": 0, "z": 0 },
-    "goal":  { "x": 3, "y": 3, "z": 2 }
-  }'
-```
-
-### 5. Export PDF
-
-```bash
-curl -X GET "http://localhost:3000/api/v1/models/1/updates?format=pdf&status=ACCEPTED" \
-  -H "Authorization: Bearer <TOKEN>" \
-  --output updates.pdf
-```
-
----
-
-## Errori Gestiti
-
-| Scenario | HTTP Status |
-|---|---|
-| Token JWT mancante o malformato | `401 Unauthorized` |
-| Credito esaurito | `401 Unauthorized` |
-| Permessi insufficienti (non creatore) | `403 Forbidden` |
-| Modello non trovato | `404 Not Found` |
-| Coordinate fuori griglia | `400 Bad Request` |
-| Celle duplicate nella richiesta | `400 Bad Request` |
-| Modifica nulla (cella già nello stato proposto) | `400 Bad Request` |
-| Richiesta già in stato ACCEPTED o REJECTED | `409 Conflict` |
-| Path non trovato | `200 OK` con `found: false` |
-
----
-
-## Test Automatizzati (Jest)
-
-La suite di test verifica i casi d'uso principali e i vincoli di sicurezza:
+Inoltre, il progetto include una suite di test automatizzati (Jest) che verifica i casi d'uso principali e i vincoli di sicurezza:
 
 ```bash
 # Installa le dipendenze
@@ -537,39 +538,26 @@ npm test
 
 ---
 
-## Diagramma delle Classi – Pattern Architetturali
+## Note
 
-```mermaid
-classDiagram
-  class Controllers {
-    <<Presentation Layer>>
-    +validaRequest()
-    +formattaResponse()
-  }
-  
-  class Services {
-    <<Business Logic Layer>>
-    +orchestrazioneBusiness()
-    +gestioneTransazioni()
-  }
-  
-  class Repositories {
-    <<Data Access Layer>>
-    +querySequelize()
-  }
-  
-  class Database {
-    <<PostgreSQL>>
-  }
-  
-  Controllers --> Services : Chiama
-  Services --> Repositories : Delega DB
-  Repositories --> Database : Esegue SQL
-```
+### Stack Tecnologico
 
----
+| Componente | Tecnologia |
+|---|---|
+| Runtime | Node.js 20 |
+| Framework | Express.js 4 |
+| Linguaggio | TypeScript 5 |
+| ORM | Sequelize 6 + sequelize-typescript |
+| Database | PostgreSQL (SQLite in test) |
+| Autenticazione | JWT RS256 (`jsonwebtoken`) |
+| Password hashing | bcrypt |
+| Pathfinding | PathFinding3D.js (via Adapter) + A\* fallback |
+| Export PDF | PDFKit |
+| Test | Jest + Supertest |
+| Container | Docker + Docker Compose |
+| Logging | Winston |
 
-## Struttura del Progetto
+### Struttura del Progetto
 
 ```
 src/
@@ -628,14 +616,11 @@ tests/
 └── update-request.middleware.test.ts
 ```
 
----
 
-## Specifiche Consegna
-
-- **Repository:** pubblico su GitHub
-- **Consegna:** [https://learn.univpm.it/mod/assign/view.php?id=728667](https://learn.univpm.it/mod/assign/view.php?id=728667)
-- **Formato:** URL repository + commit ID + data esame
 
 ---
 
-*Progetto sviluppato per il corso di Programmazione Avanzata – UNIVPM – A.A. 2025/2026*
+## Autori
+
+- **Luca Belardinelli**
+- **Luigi Greco**
