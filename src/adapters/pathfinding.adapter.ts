@@ -43,7 +43,7 @@ export interface IPathfindingAdapter {
     grid: AdapterGrid,
     start: Coordinate3D,
     goal: Coordinate3D
-  ): PathfindingAdapterResult;
+  ): Promise<PathfindingAdapterResult>;
 }
 
 // ─────────────────────────────────────────────
@@ -71,11 +71,11 @@ export class PathFinding3DAdapter implements IPathfindingAdapter {
    * @param goal   Coordinata di arrivo
    * @returns      Percorso trovato (o found=false se non esiste)
    */
-  findPath(
+  async findPath(
     grid: AdapterGrid,
     start: Coordinate3D,
     goal: Coordinate3D
-  ): PathfindingAdapterResult {
+  ): Promise<PathfindingAdapterResult> {
 
     // Importazione dinamica della libreria (la importa al volo quando si chiama questa funzione)
     let PF: any;
@@ -167,11 +167,11 @@ export class PathFinding3DAdapter implements IPathfindingAdapter {
  */
 export class FallbackPathfindingAdapter implements IPathfindingAdapter {
 
-  findPath(
+  async findPath(
     grid: AdapterGrid,
     start: Coordinate3D,
     goal: Coordinate3D
-  ): PathfindingAdapterResult {
+  ): Promise<PathfindingAdapterResult> {
 
     // Struttura di un nodo nell'algoritmo A*
     interface AStarNode {
@@ -210,7 +210,14 @@ export class FallbackPathfindingAdapter implements IPathfindingAdapter {
     };
     openSet.set(key(start.x, start.y, start.z), startNode);
 
+    let iterations = 0;
     while (openSet.size > 0) {
+      // Cessione del controllo all'Event Loop (Yielding) ogni 1000 iterazioni
+      // Questo previene l'Event Loop Starvation durante calcoli CPU intensivi
+      if (++iterations % 1000 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+
       // Prendi il nodo con f più basso
       let current: AStarNode | null = null;
       for (const node of openSet.values()) {

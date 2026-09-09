@@ -46,7 +46,7 @@ export interface PathfindingStrategy {
     version: ModelVersion,
     start: GridCoordinate,
     goal: GridCoordinate
-  ): PathfindingResult;
+  ): Promise<PathfindingResult>;
 }
 
 // ─────────────────────────────────────────────
@@ -63,12 +63,12 @@ export interface PathfindingStrategy {
 export class Grid2DStrategy implements PathfindingStrategy {
   constructor(private readonly adapter: IPathfindingAdapter) { }
 
-  execute(
+  async execute(
     model: GridModel,
     version: ModelVersion,
     start: GridCoordinate,
     goal: GridCoordinate
-  ): PathfindingResult {
+  ): Promise<PathfindingResult> {
     const startTime = Date.now();
 
     // Cast delle coordinate – per 2D ci aspettiamo solo {x, y}
@@ -93,7 +93,7 @@ export class Grid2DStrategy implements PathfindingStrategy {
     const start3D: Coordinate3D = { x: start2D.x, y: start2D.y, z: 0 };
     const goal3D: Coordinate3D = { x: goal2D.x, y: goal2D.y, z: 0 };
 
-    const result = this.adapter.findPath(adapterGrid, start3D, goal3D);
+    const result = await this.adapter.findPath(adapterGrid, start3D, goal3D);
     const executionTimeMs = Date.now() - startTime;
 
     // Converte il path 3D in 2D (rimuove la z superflua)
@@ -147,12 +147,12 @@ export class Grid2DStrategy implements PathfindingStrategy {
 export class Grid3DStrategy implements PathfindingStrategy {
   constructor(private readonly adapter: IPathfindingAdapter) { }
 
-  execute(
+  async execute(
     model: GridModel,
     version: ModelVersion,
     start: GridCoordinate,
     goal: GridCoordinate
-  ): PathfindingResult {
+  ): Promise<PathfindingResult> {
     const startTime = Date.now();
 
     const start3D = start as Coordinate3D;
@@ -172,7 +172,7 @@ export class Grid3DStrategy implements PathfindingStrategy {
       data: gridData3D,
     };
 
-    const result = this.adapter.findPath(adapterGrid, start3D, goal3D);
+    const result = await this.adapter.findPath(adapterGrid, start3D, goal3D);
     const executionTimeMs = Date.now() - startTime;
 
     // Il costo ottimo viene direttamente dall'algoritmo A* dell'adapter.
@@ -240,13 +240,13 @@ export class PathfindingContext {
     this.strategy = strategy;
   }
 
-  execute(
+  async execute(
     model: GridModel,
     version: ModelVersion,
     start: GridCoordinate,
     goal: GridCoordinate
-  ): PathfindingResult {
-    return this.strategy.execute(model, version, start, goal);
+  ): Promise<PathfindingResult> {
+    return await this.strategy.execute(model, version, start, goal);
   }
 }
 
