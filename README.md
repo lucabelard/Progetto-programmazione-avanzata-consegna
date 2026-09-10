@@ -4,9 +4,8 @@
 > Università Politecnica delle Marche – Docente: Prof. Adriano Mancini
 
 **Dettagli Consegna:**
-- **URL Repository Pubblico:** [Inserisci qui l'URL del repository GitHub]
-- **Commit ID:** [Inserisci qui il commit ID per la valutazione]
-- **Data Esame:** [Inserisci qui la data dell'esame]
+- **URL Repository Pubblico:** [https://github.com/lucabelard/Progetto-programmazione-avanzata-consegna]
+- **Data Esame:** [18/09/2026]
 
 Back-end per la gestione, validazione, esecuzione e versionamento di modelli di ricerca del percorso su griglia, con supporto sia per griglie 2D che per voxel-grid 3D.
 
