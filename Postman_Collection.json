@@ -364,7 +364,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"start\": {\n    \"x\": 0,\n    \"y\": 0\n  },\n  \"goal\": {\n    \"x\": 4,\n    \"y\": 4\n  }\n}"
+              "raw": "{\n  \"start\": {\n    \"x\": 0,\n    \"y\": 0\n  },\n  \"goal\": {\n    \"x\": 4,\n    \"y\": 4\n  },\n  \"algorithm\": \"BFS\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/execute",
@@ -744,6 +744,72 @@
                 {
                   "key": "modelType",
                   "value": "GRID_2D"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti 3D - Filtro Layer Z (es. z=0)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId3D}}/updates?layerZ=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId3D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "layerZ",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lista Aggiornamenti - Filtro Date (Intervallo Temporale)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/{{modelId2D}}/updates?startDate=2025-01-01&endDate=2027-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "{{modelId2D}}",
+                "updates"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2027-12-31"
                 }
               ]
             }
