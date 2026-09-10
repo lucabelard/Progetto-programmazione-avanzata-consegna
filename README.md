@@ -297,7 +297,7 @@ flowchart TD
     
     Router --> |POST /decide| Decide[Decisione Aggiornamento]
     Decide --> IsAppr{Utente == Creatore?}
-    IsAppr -- Si --> Apply[Applica Modifiche (Approve/Reject)]
+    IsAppr -- Si --> Apply["Applica Modifiche (Approve/Reject)"]
     IsAppr -- No --> Err403[403 Forbidden]
     
     Router --> |POST /execute| Path[Esecuzione Pathfinding]
