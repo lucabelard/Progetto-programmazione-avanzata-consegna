@@ -3,6 +3,11 @@
 > **Progetto per il corso di Programmazione Avanzata – A.A. 2025/2026**  
 > Università Politecnica delle Marche – Docente: Prof. Adriano Mancini
 
+**Dettagli Consegna:**
+- **URL Repository Pubblico:** [Inserisci qui l'URL del repository GitHub]
+- **Commit ID:** [Inserisci qui il commit ID per la valutazione]
+- **Data Esame:** [Inserisci qui la data dell'esame]
+
 Back-end per la gestione, validazione, esecuzione e versionamento di modelli di ricerca del percorso su griglia, con supporto sia per griglie 2D che per voxel-grid 3D.
 
 ---
@@ -668,7 +673,9 @@ src/
 └── server.ts
 tests/
 ├── auth.middleware.test.ts
-└── update-request.middleware.test.ts
+├── integration.test.ts
+├── update-request.middleware.test.ts
+└── users.test.ts
 ```
 
 
