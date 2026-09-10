@@ -132,22 +132,38 @@ export class UpdateRequestService {
     externalTransaction?: Transaction
   ): Promise<UpdateRequest> {
 
-    const request = await updateRequestRepository.findByIdWithDetails(requestId);
-    const model   = await gridModelRepository.findByIdWithDetails(request.modelId);
-
-    // Solo il creatore del modello pu decidere sulle richieste
-    if (model.creatorId !== approverId) {
-      throw new ForbiddenError(
-        'Solo il creatore del modello pu approvare o rifiutare le richieste di aggiornamento'
-      );
-    }
-
-    // Usa il State Pattern per verificare che la transizione sia valida
-    const stateCtx = new UpdateRequestStateContext(request.status);
-
     const execute = async (t: Transaction) => {
+      const request = await updateRequestRepository.findByIdWithDetails(requestId, t);
+      const model   = await gridModelRepository.findByIdWithDetails(request.modelId, t);
+
+      // Solo il creatore del modello pu decidere sulle richieste
+      if (model.creatorId !== approverId) {
+        throw new ForbiddenError(
+          'Solo il creatore del modello pu approvare o rifiutare le richieste di aggiornamento'
+        );
+      }
+
+      // Usa il State Pattern per verificare che la transizione sia valida
+      const stateCtx = new UpdateRequestStateContext(request.status);
+
       if (action === 'approve') {
-        stateCtx.approve(); // Lancia errore se non  PENDING
+        stateCtx.approve(); // Lancia errore se non PENDING
+
+        // Ri-valida le celle contro lo stato ATTUALE della griglia.
+        try {
+          this.validateCells(request.cells, model);
+        } catch (err: any) {
+          // Se la modifica è diventata nulla (es. approvata da un'altra richiesta),
+          // rifiutiamo automaticamente invece di far saltare l'intera transazione bulk!
+          return updateRequestRepository.decide(
+            requestId,
+            approverId,
+            UpdateRequestStatus.REJECTED,
+            `Rifiutata automaticamente dal sistema: ${err.message}`,
+            null,
+            t
+          );
+        }
 
         // Applica le modifiche alla griglia
         const newGridData = this.applyChanges(model.gridData, request.cells);

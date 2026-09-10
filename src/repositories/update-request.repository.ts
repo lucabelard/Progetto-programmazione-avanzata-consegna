@@ -51,8 +51,9 @@ export class UpdateRequestRepository extends BaseRepository<UpdateRequest> {
    * Cerca una richiesta per ID, con tutte le associazioni.
    * @throws NotFoundError se non trovata
    */
-  async findByIdWithDetails(id: number): Promise<UpdateRequest> {
+  async findByIdWithDetails(id: number, t?: Transaction): Promise<UpdateRequest> {
     const req = await UpdateRequest.findByPk(id, {
+      transaction: t,
       include: [
         { model: User,         as: 'proposer',    attributes: ['id', 'name', 'email'] },
         { model: User,         as: 'approver',    attributes: ['id', 'name', 'email'] },

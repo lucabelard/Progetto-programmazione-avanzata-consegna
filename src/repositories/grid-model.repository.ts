@@ -23,8 +23,9 @@ export class GridModelRepository extends BaseRepository<GridModel> {
    *
    * @throws NotFoundError se il modello non esiste
    */
-  async findByIdWithDetails(id: number): Promise<GridModel> {
+  async findByIdWithDetails(id: number, t?: Transaction): Promise<GridModel> {
     const model = await GridModel.findByPk(id, {
+      transaction: t,
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
         {
