@@ -5,6 +5,7 @@
 
 **Dettagli Consegna:**
 - **URL Repository Pubblico:** [https://github.com/lucabelard/Progetto-programmazione-avanzata-consegna]
+- **Commit ID:** [9bd7d5a]
 - **Data Esame:** [18/09/2026]
 
 Back-end per la gestione, validazione, esecuzione e versionamento di modelli di ricerca del percorso su griglia, con supporto sia per griglie 2D che per voxel-grid 3D.
