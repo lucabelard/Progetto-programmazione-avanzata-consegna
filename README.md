@@ -373,10 +373,15 @@ sequenceDiagram
   note right of Bob: { action: "approve" }
   API->>API: authenticate() — verifica Bob
   API->>SVC: decideRequest(requestId=5, approverId=Bob, approve)
-  SVC->>DB: SELECT update_request WHERE id=5
-  DB-->>SVC: request { status: PENDING } ✓
-  SVC->>SVC: StateContext.approve() — PENDING → ACCEPTED
   SVC->>DB: BEGIN TRANSACTION
+  SVC->>DB: SELECT update_request WHERE id=5 (bloccato nella transazione)
+  DB-->>SVC: request { status: PENDING, cells: [...] }
+  SVC->>DB: SELECT grid_model WHERE id=2 (bloccato nella transazione)
+  DB-->>SVC: model { creatorId: Bob, gridData: [...] }
+  SVC->>SVC: Verifica: Bob == creatorId ✓
+  SVC->>SVC: StateContext.approve() — verifica stato PENDING → ACCEPTED
+  SVC->>SVC: validateCells(request.cells, model) — ri-valida contro stato attuale della griglia
+  note right of SVC: Se la cella è già nello stato proposto (modifica nulla confluita da bulk),<br/>auto-reject: UPDATE status=REJECTED + COMMIT, senza interrompere la transazione
   SVC->>SVC: applyChanges(gridData, cells) — deep clone + modifica
   SVC->>DB: UPDATE grid_models SET grid_data=... WHERE id=2
   SVC->>DB: INSERT INTO model_versions (versionNumber=2, proposedBy=Alice, approvedBy=Bob)
@@ -385,15 +390,20 @@ sequenceDiagram
   DB-->>SVC: UpdateRequest { status: ACCEPTED, resultVersionId: 3 }
   API-->>Bob: 200 { success:true, data: { status:"ACCEPTED" } }
 
-  Note over Bob,API: Caso alternativo — Rifiuto
+  Note over Bob,API: Caso alternativo — Rifiuto esplicito
 
   Bob->>API: POST /api/v1/models/2/updates/6/decide
   note right of Bob: { action: "reject", reason: "Voxel necessario" }
   API->>SVC: decideRequest(requestId=6, approverId=Bob, reject)
-  SVC->>SVC: StateContext.reject() — PENDING → REJECTED
   SVC->>DB: BEGIN TRANSACTION
-  note right of DB: Griglia NON viene modificata
-  SVC->>DB: UPDATE update_requests SET status=REJECTED, reason=...
+  SVC->>DB: SELECT update_request WHERE id=6 (bloccato nella transazione)
+  DB-->>SVC: request { status: PENDING }
+  SVC->>DB: SELECT grid_model WHERE id=2 (bloccato nella transazione)
+  DB-->>SVC: model { creatorId: Bob }
+  SVC->>SVC: Verifica: Bob == creatorId ✓
+  SVC->>SVC: StateContext.reject() — verifica stato PENDING → REJECTED
+  note right of DB: Griglia NON viene modificata, nessuna nuova versione
+  SVC->>DB: UPDATE update_requests SET status=REJECTED, reason="Voxel necessario"
   SVC->>DB: COMMIT
   API-->>Bob: 200 { success:true, data: { status:"REJECTED" } }
 ```
